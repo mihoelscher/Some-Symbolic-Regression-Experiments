@@ -1,6 +1,7 @@
 # Custom ignores #
 ##################
-
+.idea
+thesis-env
 
 # Compiled source #
 ###################
