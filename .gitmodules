@@ -1,0 +1,3 @@
+[submodule "ginn-lp"]
+	path = ginn-lp
+	url = https://github.com/nisalr/ginn-lp.git
