@@ -1,6 +1,0 @@
-[submodule "ginn-lp"]
-	path = ginn-lp
-	url = https://github.com/nisalr/ginn-lp.git
-[submodule "parfam"]
-	path = parfam
-	url = https://github.com/Philipp238/parfam.git
