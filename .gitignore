@@ -2,6 +2,7 @@
 ##################
 .idea
 thesis-env
+test.py
 
 # Compiled source #
 ###################
