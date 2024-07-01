@@ -49,14 +49,14 @@ class RationalFunction(nn.Module):
         torch.Tensor: The output tensor after applying the rational function.
         """
         # Compute the numerator P(x)
-        num = sum([self.coeffs_p[i] * x ** i for i in range(len(self.coeffs_p))])
+        num = sum([self.coeffs_p[-i-1] * x ** i for i in range(len(self.coeffs_p))])
 
         # Compute the denominator Q(x)
-        denom = sum([self.coeffs_q[i] * x ** i for i in range(len(self.coeffs_q))])
+        denom = sum([self.coeffs_q[-i-1] * x ** i for i in range(len(self.coeffs_q))])
 
         return torch.Tensor(num / denom)
 
-    def fit(self, x_input, target, num_epochs=1000, learning_rate=0.01):
+    def fit(self, x_input, target, num_epochs=1000, learning_rate=0.01, sparsity_parameter=0.01):
         """
         Fit the RationalFunction model to the training data.
 
@@ -72,12 +72,15 @@ class RationalFunction(nn.Module):
         for epoch in range(num_epochs):
             y_pred = self.forward(x_input)
             loss = criterion(y_pred, target)
+            # Add regularization for sparsity
+            regularization = sparsity_parameter * (self.coeffs_p.count_nonzero() + self.coeffs_q.count_nonzero())
+            loss += regularization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             with torch.no_grad():
-                self.coeffs_p[torch.abs(self.coeffs_p) < 0.1] = 0.0
-                self.coeffs_q[:-1][torch.abs(self.coeffs_q[:-1]) < 0.1] = 0.0
+                self.coeffs_p[torch.abs(self.coeffs_p) < 0.01] = 0.0
+                self.coeffs_q[:-1][torch.abs(self.coeffs_q[:-1]) < 0.01] = 0.0
 
             if (epoch + 1) % 100 == 0:
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
@@ -100,11 +103,11 @@ if __name__ == '__main__':
     device = 'cpu'
     model = RationalFunction(2, 2).to(device)
     x_train = torch.linspace(-10, 10, 500).to(device)
-    target_function = sympy.lambdify('x', sympy.sympify('x**2'))
-    y_train = (x_train**2)
+    y_train = (x_train**2 + 3.141 * x_train)
+    target_function = sympy.lambdify('x', sympy.sympify(f'x**2 + 3.141 * x'))
 
     # Train the model
-    model.fit(x_train, y_train, num_epochs=10000, learning_rate=0.01)
+    model.fit(x_train, y_train, num_epochs=4000, learning_rate=0.01, sparsity_parameter=0)
     model.eval()
     recovered_function = sympy.lambdify('x', model.get_function())
     with torch.no_grad():
