@@ -1,3 +1,9 @@
+
+
+
+
+
+import re
 import sympy
 from sympy import simplify, symbols
 import torch
@@ -154,5 +160,29 @@ def function_to_plot(target_function, predicted_function=None, x_min=-10, x_max=
     plt.show()
 
 
+def string_to_function(expression_str):
+    variable_names = sorted(set(re.findall(r'x_\d+', expression_str)))
+    variables = sympy.symbols(variable_names)
+    replacements = {name: var for name, var in zip(variable_names, variables)}
+    for name, var in replacements.items():
+        expression_str = expression_str.replace(name, str(var))
+    sympy_expr = sympy.sympify(expression_str)
+    func_numeric = sympy.lambdify(variables, sympy_expr, modules=['numpy'])
+
+    return func_numeric
+
+
+def process_tensor_with_function(tensor, expression_str):
+    function = string_to_function(expression_str)
+    tensor_np = tensor.cpu().numpy()
+    input_components = [tensor_np[:, i] for i in range(tensor_np.shape[1])]
+    result_np = function(*input_components)
+    result_tensor = torch.tensor(result_np, dtype=tensor.dtype)
+    return result_tensor
+
+
 if __name__ == '__main__':
-    my_function = 'x_0**3'
+    my_function_str = '(x_0**3+x_1**2)/(x_1 + 1)'
+    my_function = string_to_function(my_function_str)
+    x = torch.ones((10, 2))
+    print(process_tensor_with_function(x, '(x_0**3+x_1**2)/(x_1 + 1)'))

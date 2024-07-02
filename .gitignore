@@ -41,3 +41,14 @@ test.py
 .Trashes
 ehthumbs.db
 Thumbs.db
+/ginn-lp/build/lib/ginnlp/__init__.py
+/ginn-lp/build/lib/ginnlp/data_gen.py
+/ginn-lp/build/lib/ginnlp/de_learn_network.py
+/ginn-lp/ginnlp.egg-info/dependency_links.txt
+/ginn-lp/build/lib/ginnlp/ginnlp.py
+/ginn-lp/ginnlp.egg-info/not-zip-safe
+/ginn-lp/ginnlp.egg-info/PKG-INFO
+/ginn-lp/ginnlp.egg-info/SOURCES.txt
+/ginn-lp/ginnlp.egg-info/top_level.txt
+/ginn-lp/build/lib/ginnlp/train_model.py
+/ginn-lp/build/lib/ginnlp/utils.py

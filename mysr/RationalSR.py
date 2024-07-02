@@ -56,7 +56,7 @@ class RationalFunction(nn.Module):
 
         return torch.Tensor(num / denom)
 
-    def fit(self, x_input, target, num_epochs=1000, learning_rate=0.01, sparsity_parameter=0.01):
+    def fit(self, x_input, target, num_epochs=4000, learning_rate=0.01, sparsity_parameter=0):
         """
         Fit the RationalFunction model to the training data.
 
@@ -68,7 +68,7 @@ class RationalFunction(nn.Module):
         """
         criterion = nn.MSELoss()
         optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-        model.train()
+        self.train()
         for epoch in range(num_epochs):
             y_pred = self.forward(x_input)
             loss = criterion(y_pred, target)
