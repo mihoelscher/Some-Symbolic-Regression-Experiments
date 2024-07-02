@@ -52,3 +52,5 @@ Thumbs.db
 /ginn-lp/ginnlp.egg-info/top_level.txt
 /ginn-lp/build/lib/ginnlp/train_model.py
 /ginn-lp/build/lib/ginnlp/utils.py
+/ginn-lp/ginnlp.egg-info/
+/venv/
