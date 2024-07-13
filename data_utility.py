@@ -1,8 +1,3 @@
-
-
-
-
-
 import re
 import sympy
 from sympy import simplify, symbols
@@ -32,7 +27,7 @@ def plot_data(inputs, outputs, color='blue'):
     input_dim = len(inputs[0])
     if input_dim == 1:
         # For 1D inputs, create a simple scatter plot
-        inputs = [x[0] for x in inputs]  # Unpack the single-element lists
+        inputs = [_input[0] for _input in inputs]  # Unpack the single-element lists
         plt.scatter(inputs, outputs, c=color, marker='o')
         plt.xlabel('Input')
         plt.ylabel('Output')
@@ -41,8 +36,8 @@ def plot_data(inputs, outputs, color='blue'):
         # For 2D inputs, create a 3D scatter plot
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        xs = [x[0] for x in inputs]
-        ys = [x[1] for x in inputs]
+        xs = [_input[0] for _input in inputs]
+        ys = [_input[1] for _input in inputs]
         ax.scatter(xs, ys, outputs, c=color, marker='o')
         ax.set_xlabel('Input 1')
         ax.set_ylabel('Input 2')
@@ -135,6 +130,17 @@ def plot_predictions_2d(train_data, train_labels, test_data, test_labels, predic
     plt.show()
 
 
+def plot_losses(losses):
+    plt.figure(figsize=(8, 6))
+    plt.plot(range(len(losses)), losses, label="Loss", color="r")
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training loss')
+    plt.legend()
+    # plt.savefig('test.svg', format='svg')
+    plt.show()
+
+
 def function_to_plot(target_function, predicted_function=None, x_min=-10, x_max=10, num_points=400):
     # Generate x values
     x_values = np.linspace(x_min, x_max, num_points)
@@ -179,6 +185,11 @@ def process_tensor_with_function(tensor, expression_str):
     result_np = function(*input_components)
     result_tensor = torch.tensor(result_np, dtype=tensor.dtype)
     return result_tensor
+
+
+def create_input_tensor(expression_str, input_dim, scalar=1):
+    variable_names = sorted(set(re.findall(r'x_\d+', expression_str)))
+    return torch.randn(input_dim, len(variable_names))*scalar
 
 
 if __name__ == '__main__':

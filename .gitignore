@@ -3,6 +3,7 @@
 .idea
 thesis-env
 test.py
+plot_temp
 
 # Compiled source #
 ###################
