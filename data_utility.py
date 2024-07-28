@@ -130,15 +130,15 @@ def plot_predictions_2d(train_data, train_labels, test_data, test_labels, predic
     plt.show()
 
 
-def plot_losses(losses):
-    plt.figure(figsize=(8, 6))
-    plt.plot(range(len(losses)), losses, label="Loss", color="r")
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training loss')
-    plt.legend()
-    # plt.savefig('test.svg', format='svg')
-    plt.show()
+def get_loss_plot(losses):
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(range(len(losses)), losses, label="Loss", color="r")
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.set_title('Training loss')
+    ax.legend()
+
+    return fig, ax
 
 
 def function_to_plot(target_function, predicted_function=None, x_min=-10, x_max=10, num_points=400):

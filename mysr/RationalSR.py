@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import sympy
 import torch
 import torch.nn as nn
@@ -36,8 +37,8 @@ class RationalFunction(nn.Module):
         num_coeffs_q (int): The number of coefficients in the denominator polynomial Q(x).
         """
         super(RationalFunction, self).__init__()
-        self.coeffs_p = nn.Parameter(torch.ones(degree_p + 1))
-        self.coeffs_q = nn.Parameter(torch.ones(degree_q + 1))
+        self.coeffs_p = nn.Parameter(torch.randn(degree_p + 1))
+        self.coeffs_q = nn.Parameter(torch.randn(degree_q))
 
     def forward(self, x) -> Tensor:
         """
@@ -51,7 +52,7 @@ class RationalFunction(nn.Module):
         """
         # Compute the numerator P(x) and denominator Q(x)
         num = sum([self.coeffs_p[-i - 1] * x ** i for i in range(len(self.coeffs_p))])
-        denom = sum([self.coeffs_q[-i - 1] * x ** i for i in range(len(self.coeffs_q))])
+        denom = sum([self.coeffs_q[-i - 1] * x ** i for i in range(len(self.coeffs_q)-1)]) + 1
         return torch.Tensor(num / denom)
 
     def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
@@ -90,6 +91,11 @@ class RationalFunction(nn.Module):
             if verbose == 1 and (epoch + 1) % 10 == 0:
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
                 print(self.get_function())
+        with torch.no_grad():
+            mask = torch.abs(self.coeffs_p - torch.round(self.coeffs_p)) < 0.001
+            self.coeffs_p[mask] = torch.round(self.coeffs_p[mask])
+            mask = torch.abs(self.coeffs_q[:-1] - torch.round(self.coeffs_q[:-1])) < 0.001
+            self.coeffs_q[:-1][mask] = torch.round(self.coeffs_q[:-1][mask])
         return losses
 
     def get_function(self):
@@ -101,19 +107,20 @@ class RationalFunction(nn.Module):
             """
         _x = sympy.Symbol('x')
         numerator = sum(coeff.round(decimals=5) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
-        denominator = sum(coeff.round(decimals=5) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_q)))
+        denominator = sum(coeff.round(decimals=5) * _x ** i+1 for i, coeff in enumerate(reversed(self.coeffs_q))) + 1
         return sympy.sympify(numerator / denominator)
 
 
 if __name__ == '__main__':
     device = 'cpu'
-    model = RationalFunction(2, 0).to(device)
+    model = RationalFunction(3, 0).to(device)
     x_train = torch.linspace(-3, 3, 1000).to(device)
-    y_train = (2*x_train ** 2 + 3.141 * x_train)
-    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + 3.141 * x)'))
+    y_train = (2*x_train ** 2 + 3.141 * x_train + 3)
+    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + 3.141 * x + 3)'))
 
     # Train the model
-    loss_history = model.fit(x_train, y_train, num_epochs=400, regularization_parameter=0.1, regularization_order=1)
+    loss_history = model.fit(x_train, y_train, num_epochs=1000, regularization_parameter=0.1, regularization_order=None,
+                             optimizer=optim.Adam(model.parameters(), lr=0.1))
     model.eval()
     recovered_function = sympy.lambdify('x', model.get_function())
     with torch.no_grad():
@@ -121,4 +128,5 @@ if __name__ == '__main__':
         print("Learned coefficients for Q(x):", model.coeffs_q)
         print("Recovered function: ", model.get_function())
     # data_utility.function_to_plot(target_function, recovered_function)
-    data_utility.plot_losses(loss_history)
+    fig, ax = data_utility.get_loss_plot(loss_history)
+    plt.show()

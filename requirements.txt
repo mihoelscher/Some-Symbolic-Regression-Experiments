@@ -8,6 +8,5 @@ pathos==0.3.2
 pmlb==1.0.1.post3
 psutil~=6.0.0
 scipy==1.13.0
-torch~=2.3.1+cu118
-ginnlp~=0.1
+torch
 setuptools~=68.2.0
