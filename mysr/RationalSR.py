@@ -37,8 +37,8 @@ class RationalFunction(nn.Module):
         num_coeffs_q (int): The number of coefficients in the denominator polynomial Q(x).
         """
         super(RationalFunction, self).__init__()
-        self.coeffs_p = nn.Parameter(torch.randn(degree_p + 1))
-        self.coeffs_q = nn.Parameter(torch.randn(degree_q))
+        self.coeffs_p = nn.Parameter(torch.rand(degree_p + 1))
+        self.coeffs_q = nn.Parameter(torch.rand(degree_q))
 
     def forward(self, x) -> Tensor:
         """
@@ -51,11 +51,11 @@ class RationalFunction(nn.Module):
         torch.Tensor: The output tensor after applying the rational function.
         """
         # Compute the numerator P(x) and denominator Q(x)
-        num = sum([self.coeffs_p[-i - 1] * x ** i for i in range(len(self.coeffs_p))])
-        denom = sum([self.coeffs_q[-i - 1] * x ** i for i in range(len(self.coeffs_q)-1)]) + 1
+        num = sum(self.coeffs_p[-i - 1] * x ** i for i in range(len(self.coeffs_p)))
+        denom = sum(self.coeffs_q[-i - 1] * x ** (i+1) for i in range(len(self.coeffs_q))) + 1
         return torch.Tensor(num / denom)
 
-    def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
+    def fit(self, x_input, target, num_epochs=2000, regularization_parameter=0.1, verbose=1,
             criterion=None, optimizer=None, scheduler=None, regularization_order: int | float = None):
         """
         Fit the RationalFunction model to the training data.
@@ -82,19 +82,19 @@ class RationalFunction(nn.Module):
                          * regularization_parameter)
             loss.backward()
             optimizer.step()
-            scheduler.step(loss)
+            # scheduler.step(loss)
             # prune coefficients
             with torch.no_grad():
                 self.coeffs_p[torch.abs(self.coeffs_p) < 0.001] = 0.0
                 self.coeffs_q[:-1][torch.abs(self.coeffs_q[:-1]) < 0.001] = 0.0
             # adjust learning rate
             if verbose == 1 and (epoch + 1) % 10 == 0:
-                print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
+                print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.9f}')
                 print(self.get_function())
         with torch.no_grad():
-            mask = torch.abs(self.coeffs_p - torch.round(self.coeffs_p)) < 0.001
+            mask = torch.abs(self.coeffs_p - torch.round(self.coeffs_p)) < 0.01
             self.coeffs_p[mask] = torch.round(self.coeffs_p[mask])
-            mask = torch.abs(self.coeffs_q[:-1] - torch.round(self.coeffs_q[:-1])) < 0.001
+            mask = torch.abs(self.coeffs_q[:-1] - torch.round(self.coeffs_q[:-1])) < 0.01
             self.coeffs_q[:-1][mask] = torch.round(self.coeffs_q[:-1][mask])
         return losses
 
@@ -107,26 +107,27 @@ class RationalFunction(nn.Module):
             """
         _x = sympy.Symbol('x')
         numerator = sum(coeff.round(decimals=5) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
-        denominator = sum(coeff.round(decimals=5) * _x ** i+1 for i, coeff in enumerate(reversed(self.coeffs_q))) + 1
+        # + 1 has to be outside since in the case Q = 1, we have no coeffs so sum will be 0 -> we get nan/zoo
+        denominator = sum(coeff.round(decimals=5) * _x ** (i+1) for i, coeff in enumerate(reversed(self.coeffs_q))) + 1
         return sympy.sympify(numerator / denominator)
 
 
 if __name__ == '__main__':
     device = 'cpu'
-    model = RationalFunction(3, 0).to(device)
-    x_train = torch.linspace(-3, 3, 1000).to(device)
-    y_train = (2*x_train ** 2 + 3.141 * x_train + 3)
-    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + 3.141 * x + 3)'))
+    model = RationalFunction(2, 1).to(device)
+    x_train = torch.linspace(-3, 3, 1001).to(device)
+    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + {torch.pi} * x + 3)/(x+1)'))
+    y_train = target_function(x_train)
 
     # Train the model
     loss_history = model.fit(x_train, y_train, num_epochs=1000, regularization_parameter=0.1, regularization_order=None,
-                             optimizer=optim.Adam(model.parameters(), lr=0.1))
+                             optimizer=optim.Adam(model.parameters(), lr=0.01))
     model.eval()
     recovered_function = sympy.lambdify('x', model.get_function())
     with torch.no_grad():
         print("Learned coefficients for P(x):", model.coeffs_p)
         print("Learned coefficients for Q(x):", model.coeffs_q)
         print("Recovered function: ", model.get_function())
-    # data_utility.function_to_plot(target_function, recovered_function)
+    data_utility.function_to_plot(target_function, recovered_function)
     fig, ax = data_utility.get_loss_plot(loss_history)
     plt.show()
