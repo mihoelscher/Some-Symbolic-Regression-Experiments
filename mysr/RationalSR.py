@@ -124,7 +124,7 @@ if __name__ == '__main__':
     device = 'cpu'
     model = RationalFunction(2, 1).to(device)
     x_train = torch.linspace(-3, 3, 101).to(device)
-    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + {torch.pi} * x + 3)/(x+1)'))
+    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + {torch.pi} * x + 3)/(x+7)'))
     y_train = target_function(x_train)
 
     # Train the model
@@ -136,6 +136,6 @@ if __name__ == '__main__':
         print("Learned coefficients for P(x):", model.coeffs_p)
         print("Learned coefficients for Q(x):", model.coeffs_q)
         print("Recovered function: ", model.get_function())
-    data_utility.function_to_plot(target_function, recovered_function)
+    data_utility.function_to_plot(target_function, recovered_function, -4, 4)
     fig, ax = data_utility.get_loss_plot(loss_history)
     plt.show()
