@@ -11,7 +11,7 @@ def train_multiple_models_parallel(function_string, regularization_orders):
         torch.manual_seed(1337)
         _model = RationalFunction(2, 0)
         _loss = _model.fit(x_train, y_train, num_epochs=1000,
-                           regularization_parameter=0.1,
+                           regularization_parameter=1,
                            regularization_order=r,
                            optimizer=optim.Adam(_model.parameters(), lr=0.01))
         return _model, _loss
@@ -33,25 +33,28 @@ def train_multiple_models_parallel(function_string, regularization_orders):
 
 
 def plot_multiple_losses(_models, _losses):
-    _fig, _ax = plt.subplots(figsize=(8, 6))
-    _ax.plot(range(len(_losses)), _losses, label="Losses of different regularizations", color="r")
-    _ax.set_xlabel('Epoch')
-    _ax.set_ylabel('Loss')
-    _ax.set_title('Training loss')
-    _ax.legend()
+    _fig, axes = plt.subplots(figsize=(16, 12))
+    # _ax.plot(range(len(_losses)), _losses[0], label="Losses of different regularizations", color="r")
+    axes.set_xlabel('Epoch')
+    axes.set_ylabel('Loss')
+    axes.set_title('Training loss')
     print("Recovered function: ", _models[0].get_function())
     labels = ["l0", "l0.5", "l1", "l2"]
+    colors = ["b", "g", "r", "black"]
 
-    for i, model in enumerate(_models[1:]):
+    for i, model in enumerate(_models):
         with torch.no_grad():
             print("Learned coefficients for P(x): ", model.coeffs_p, "Learned coefficients for Q(x): ",
                   model.coeffs_q)
             print("Recovered function: ", model.get_function())
-        _ax.plot(_losses[i + 1], _losses, label=labels[i + 1])
-    return _fig, _ax
+        axes.plot(range(len(_losses[i])), _losses[i], label=labels[i], color=colors[i])
+
+    axes.legend()
+    return _fig, axes
 
 
 if __name__ == '__main__':
     models, losses = train_multiple_models_parallel(f'(2*x**2 + 3.141 * x + 3)', [0, 0.5, 1, 2])
     fig, ax = plot_multiple_losses(models, losses)
+    # fig.savefig('regularization_result.svg', format='svg')
     plt.show()
