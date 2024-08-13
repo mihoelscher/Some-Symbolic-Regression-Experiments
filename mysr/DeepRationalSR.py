@@ -9,23 +9,26 @@ import data_utility
 
 
 class DeepRationalSR(nn.Module):
-    def __init__(self, p_degree, q_degree):
+    def __init__(self, p_degree, q_degree, num_hidden_layers=3, hidden_size=1000):
         super(DeepRationalSR, self).__init__()
+        self.coeffs = None
         self.p_coeff_count = p_degree + 1
         self.q_coeff_count = q_degree  # we standardize the free coefficient of q as 1
-        self.input_layer = nn.Linear(1, 1000)
-        self.linear_layers = nn.ModuleList([nn.Linear(1000, 1000) for _ in range(10)])
-        self.coefficients_layer = nn.Linear(1000, p_degree + q_degree)
-        self.coeffs = torch.rand(p_degree + q_degree)
+
+        layers = [nn.Linear(1, hidden_size), nn.ReLU()]  # input layer
+        for _ in range(num_hidden_layers - 1):  # Add hidden layers
+            layers.append(nn.Linear(hidden_size, hidden_size))
+            layers.append(nn.ReLU())
+        layers.append(nn.Linear(hidden_size, self.p_coeff_count + self.q_coeff_count))  # output layer
+        self.network = nn.Sequential(*layers)
 
     def forward(self, x):
-        c = F.relu(self.input_layer(x))
-        for layer in self.linear_layers:
-            c = F.relu(layer(c))
-        c = F.relu(self.coefficients_layer(c))
-        self.coeffs = c
-        numerator = sum(coeff * x ** (self.p_coeff_count - i - 1) for i, coeff in enumerate(c[:self.p_coeff_count]))
-        denominator = sum(coeff * x ** (self.q_coeff_count - i) for i, coeff in enumerate(c[self.p_coeff_count:])) + 1
+        x = x.unsqueeze(0)
+        self.coeffs = self.network(x)
+        numerator = sum(
+            coeff * x ** (self.p_coeff_count - i - 1) for i, coeff in enumerate(self.coeffs[:self.p_coeff_count]))
+        denominator = sum(
+            coeff * x ** (self.q_coeff_count - i) for i, coeff in enumerate(self.coeffs[self.p_coeff_count:])) + 1
         return torch.div(numerator, denominator)
 
     def get_function(self):
@@ -37,10 +40,10 @@ class DeepRationalSR(nn.Module):
             """
         _x = sympy.Symbol('x')
         numerator = sum(coeff * _x ** (self.p_coeff_count - i - 1) for i, coeff in
-                        enumerate(self.coefficients_layer[:self.p_coeff_count]))
+                        enumerate(self.coeffs[:self.p_coeff_count]))
         # + 1 has to be outside since in the case Q = 1, we have no coeffs so sum will be 0 -> we get nan/zoo
         denominator = sum(coeff * _x ** (self.q_coeff_count - i) for i, coeff in
-                          enumerate(self.coefficients_layer[self.q_coeff_count:])) + 1
+                          enumerate(self.coeffs[self.q_coeff_count:])) + 1
         return sympy.sympify(numerator / denominator)
 
     def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
