@@ -131,10 +131,8 @@ if __name__ == '__main__':
     loss_history = model.fit(x_train, y_train, num_epochs=1000, regularization_parameter=0.1, regularization_order=None,
                              optimizer=optim.Adam(model.parameters(), lr=0.01))
     model.eval()
-    recovered_function = sympy.lambdify('x', model.get_function())
     with torch.no_grad():
-        print("Learned coefficients for P(x):", model.coeffs_p)
-        print("Learned coefficients for Q(x):", model.coeffs_q)
+        recovered_function = sympy.lambdify('x', model.get_function())
         print("Recovered function: ", model.get_function())
     data_utility.function_to_plot(target_function, recovered_function, -4, 4)
     fig, ax = data_utility.get_loss_plot(loss_history)
