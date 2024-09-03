@@ -29,7 +29,7 @@ class RationalFunction(nn.Module):
         Returns the rational function.
     """
 
-    def __init__(self, degree_p, degree_q):
+    def __init__(self, degree_p=1, degree_q=1):
         """
         Initializes the RationalFunction module.
 
@@ -125,19 +125,28 @@ class RationalFunction(nn.Module):
             self.coeffs_q[:-1][mask] = torch.round(self.coeffs_q[:-1][mask])
 
     def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
-                 regularization_order: int | float = None, patience=50, min_delta=1e-3, repeat = -1):
+                 regularization_order: int | float = None, patience=50, min_delta=1e-3, repeat = 5, max_degree=5):
         # repetitively tries to fit the model until our loss is small enough, or we exceed given number of iterations
-        tries = 0
+
         loss_boundary = 0.01
-        while (not self.losses) or self.losses[-1] > loss_boundary:
-            with torch.no_grad():
-                self.coeffs_p.data = torch.rand(self.degree_p + 1)
-                self.coeffs_q.data = torch.rand(self.degree_q)
-            self.fit_once(x_input, target, num_epochs=num_epochs, regularization_parameter=regularization_parameter,
-                          verbose=verbose, regularization_order=regularization_order, patience=patience,
-                          min_delta=min_delta, loss_boundary=loss_boundary)
-            if -1 < repeat < tries:
+        while self.degree_p < max_degree:
+            tries = 0
+            while -1 < tries < repeat:
+                with torch.no_grad():
+                    self.coeffs_p.data = torch.rand(self.degree_p + 1)
+                    self.coeffs_q.data = torch.rand(self.degree_q)
+                self.fit_once(x_input, target, num_epochs=num_epochs, regularization_parameter=regularization_parameter,
+                              verbose=verbose, regularization_order=regularization_order, patience=patience,
+                              min_delta=min_delta, loss_boundary=loss_boundary)
+                if self.losses[-1] < loss_boundary:
+                    break
+                tries += 1
+            if self.losses[-1] < loss_boundary:
                 break
+            self.degree_p += 1
+            self.degree_q += 1
+
+
 
 
     def get_function(self, m = 1):
@@ -156,7 +165,7 @@ class RationalFunction(nn.Module):
 
 if __name__ == '__main__':
     device = 'cpu'
-    model = RationalFunction(2, 2).to(device)
+    model = RationalFunction().to(device)
     x_train = torch.linspace(-3, 3, 101).to(device)
     target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + {torch.pi} * x + 3)/(x+7)'))
     y_train = target_function(x_train)
