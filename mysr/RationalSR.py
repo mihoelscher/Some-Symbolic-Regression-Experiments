@@ -3,6 +3,7 @@ import sympy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from networkx import is_empty
 from torch import Tensor
 
 import data_utility
@@ -37,8 +38,11 @@ class RationalFunction(nn.Module):
         num_coeffs_q (int): The number of coefficients in the denominator polynomial Q(x).
         """
         super(RationalFunction, self).__init__()
+        self.degree_p = degree_p
+        self.degree_q = degree_q
         self.coeffs_p = nn.Parameter(torch.rand(degree_p + 1))
         self.coeffs_q = nn.Parameter(torch.rand(degree_q))
+        self.losses = []
 
     def forward(self, x) -> Tensor:
         """
@@ -55,8 +59,8 @@ class RationalFunction(nn.Module):
         denominator = sum(self.coeffs_q[-i - 1] * x ** (i+1) for i in range(len(self.coeffs_q))) + 1
         return torch.Tensor(numerator / denominator)
 
-    def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
-            criterion=None, optimizer=None, scheduler=None, regularization_order: int | float = None):
+    def fit_once(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
+            regularization_order: int | float = None, patience=50, min_delta=1e-3, loss_boundary = 0.01):
         """
         Fit the RationalFunction model to the training data.
 
@@ -69,16 +73,19 @@ class RationalFunction(nn.Module):
         Returns:
         losses (list): A list of losses computed during training.
         """
-        criterion = criterion if criterion else nn.MSELoss()
-        optimizer = optimizer if optimizer else optim.Adam(self.parameters(), lr=0.01)
-        scheduler = scheduler if scheduler else optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+        criterion = nn.MSELoss()
+        optimizer = optim.Adam(self.parameters(), lr=0.01)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
         self.train()
-        losses = []
+        self.losses = []
+        best_loss = float('inf')
+        epochs_without_improvement = 0
+
         for epoch in range(num_epochs):
             optimizer.zero_grad()
             y_pred = self.forward(x_input)
             loss = criterion(y_pred, target)
-            losses.append(loss.item())
+            self.losses.append(loss.item())
             # Add regularization for sparsity
             if regularization_order is not None:
                 loss += (sum([torch.linalg.vector_norm(p, ord=regularization_order) for p in self.parameters()])
@@ -95,7 +102,19 @@ class RationalFunction(nn.Module):
                 self.coeffs_p[torch.abs(self.coeffs_p) < 0.001] = 0.0
                 self.coeffs_q[:-1][torch.abs(self.coeffs_q[:-1]) < 0.001] = 0.0
 
-            if verbose == 1 and (epoch + 1) % 10 == 0:
+            # Check for early stopping
+            if loss.item() < best_loss - min_delta:
+                best_loss = loss.item()
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+            if epochs_without_improvement >= patience and loss.item() > loss_boundary:
+                if verbose > 0:
+                    print(f'Early stopping at epoch {epoch + 1}')
+                break
+
+            if verbose == 1 and (epoch + 1) % 100 == 0:
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.9f}')
                 print(self.get_function())
         # round if near to integer (diff less than 0.01)
@@ -104,9 +123,24 @@ class RationalFunction(nn.Module):
             self.coeffs_p[mask] = torch.round(self.coeffs_p[mask])
             mask = torch.abs(self.coeffs_q[:-1] - torch.round(self.coeffs_q[:-1])) < 0.01
             self.coeffs_q[:-1][mask] = torch.round(self.coeffs_q[:-1][mask])
-        return losses
 
-    def get_function(self):
+    def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
+                 regularization_order: int | float = None, patience=50, min_delta=1e-3, repeat = -1):
+        # repetitively tries to fit the model until our loss is small enough, or we exceed given number of iterations
+        tries = 0
+        loss_boundary = 0.01
+        while (not self.losses) or self.losses[-1] > loss_boundary:
+            with torch.no_grad():
+                self.coeffs_p.data = torch.rand(self.degree_p + 1)
+                self.coeffs_q.data = torch.rand(self.degree_q)
+            self.fit_once(x_input, target, num_epochs=num_epochs, regularization_parameter=regularization_parameter,
+                          verbose=verbose, regularization_order=regularization_order, patience=patience,
+                          min_delta=min_delta, loss_boundary=loss_boundary)
+            if -1 < repeat < tries:
+                break
+
+
+    def get_function(self, m = 1):
         """
             Constructs a symbolic rational function from the stored numerator and denominator coefficients.
 
@@ -114,26 +148,28 @@ class RationalFunction(nn.Module):
                 sympy.core.expr.Expr: A simplified SymPy expression representing the rational function.
             """
         _x = sympy.Symbol('x')
-        numerator = sum(coeff.round(decimals=5) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
+        numerator = sum(m *coeff.round(decimals=5) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
         # + 1 has to be outside since in the case Q = 1, we have no coeffs so sum will be 0 -> we get nan/zoo
-        denominator = sum(coeff.round(decimals=5) * _x ** (i+1) for i, coeff in enumerate(reversed(self.coeffs_q))) + 1
+        denominator = sum(m * coeff.round(decimals=5) * _x ** (i+1) for i, coeff in enumerate(reversed(self.coeffs_q))) + 1 * m
         return sympy.sympify(numerator / denominator)
 
 
 if __name__ == '__main__':
     device = 'cpu'
-    model = RationalFunction(2, 1).to(device)
+    model = RationalFunction(2, 2).to(device)
     x_train = torch.linspace(-3, 3, 101).to(device)
     target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + {torch.pi} * x + 3)/(x+7)'))
     y_train = target_function(x_train)
 
     # Train the model
-    loss_history = model.fit(x_train, y_train, num_epochs=1000, regularization_parameter=0.1, regularization_order=None,
-                             optimizer=optim.Adam(model.parameters(), lr=0.01))
+    model.fit(x_train, y_train, num_epochs=1500, regularization_parameter=0.1, verbose=1,
+                             regularization_order=None)
     model.eval()
     with torch.no_grad():
-        recovered_function = sympy.lambdify('x', model.get_function())
-        print("Recovered function: ", model.get_function())
-    data_utility.function_to_plot(target_function, recovered_function, -4, 4)
-    fig, ax = data_utility.get_loss_plot(loss_history)
-    plt.show()
+        recovered_function = model.get_function(7)
+        lambda_function = sympy.lambdify('x', recovered_function)
+        print("Recovered function: ", model.get_function(), "Final loss: ", model.losses[-1])
+        print("Adapted function  : ", recovered_function, "Final loss: ", model.losses[-1])
+    data_utility.function_to_plot(target_function, lambda_function, -4, 4)
+    # fig, ax = data_utility.get_loss_plot(loss_history)
+    # plt.show()

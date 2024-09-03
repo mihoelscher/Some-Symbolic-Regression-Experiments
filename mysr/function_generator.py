@@ -18,7 +18,7 @@ def generate_random_function_list(n: int, max_degree_p: int, max_degree_q: int, 
     return [generate_random_function(max_degree_p, max_degree_q, min_value, max_value) for _ in range(n)]
 
 
-def get_functions_for_degrees(n: int, _degrees):
+def get_functions_for_degrees(_degrees, n: int = 1):
     _functions = []
     for _degrees in _degrees:
         _functions += generate_random_function_list(n, _degrees[0], _degrees[1])

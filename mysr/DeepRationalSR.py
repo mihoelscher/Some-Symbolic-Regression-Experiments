@@ -23,15 +23,16 @@ class DeepRationalSR(nn.Module):
         layers.append(nn.Linear(hidden_size, self.p_coeff_count + self.q_coeff_count))  # output layer
 
         # Initialize the weights using Xavier uniform initialization
-        for layer in layers:
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal_(layer.weight)
-                nn.init.zeros_(layer.bias)
+        #for layer in layers:
+        #    if isinstance(layer, nn.Linear):
+        #        nn.init.xavier_normal_(layer.weight)
+        #        nn.init.zeros_(layer.bias)
 
         self.network = nn.Sequential(*layers)
 
     def forward(self, x):
-        self.coeffs = self.network(x.T).squeeze()
+        dummy = torch.randn(101)
+        self.coeffs = self.network(dummy).squeeze()
         numerator = sum(
             coeff * x ** (self.p_coeff_count - i - 1) for i, coeff in enumerate(self.coeffs[:self.p_coeff_count]))
         denominator = sum(
@@ -95,8 +96,10 @@ class DeepRationalSR(nn.Module):
         return losses
 
 
+
 if __name__ == '__main__':
     device = 'cpu'
+    torch.manual_seed(42)
     model = DeepRationalSR(2, 1).to(device)
     x_train = torch.linspace(-0.8, 5, 101).to(device).unsqueeze(1)
     target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + 3)/(x+1)'))
@@ -109,6 +112,6 @@ if __name__ == '__main__':
     recovered_function = sympy.lambdify('x', model.get_function())
     with torch.no_grad():
         print("Recovered function: ", model.get_function())
-    #data_utility.function_to_plot(target_function, recovered_function, -4, 4)
-    #  fig, ax = data_utility.get_loss_plot(loss_history)
-    # plt.show()
+    data_utility.function_to_plot(target_function, recovered_function, -4, 4)
+    # fig, ax = data_utility.get_loss_plot(loss_history)
+    plt.show()
