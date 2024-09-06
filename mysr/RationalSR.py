@@ -29,7 +29,7 @@ class RationalFunction(nn.Module):
         Returns the rational function.
     """
 
-    def __init__(self, degree_p=1, degree_q=1):
+    def __init__(self,max_degree=5 , degree_p=1, degree_q=1):
         """
         Initializes the RationalFunction module.
 
@@ -42,6 +42,7 @@ class RationalFunction(nn.Module):
         self.degree_q = degree_q
         self.coeffs_p = nn.Parameter(torch.rand(degree_p + 1))
         self.coeffs_q = nn.Parameter(torch.rand(degree_q))
+        self.max_degree = max_degree
         self.losses = []
 
     def forward(self, x) -> Tensor:
@@ -125,11 +126,11 @@ class RationalFunction(nn.Module):
             self.coeffs_q[:-1][mask] = torch.round(self.coeffs_q[:-1][mask])
 
     def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
-                 regularization_order: int | float = None, patience=50, min_delta=1e-3, repeat = 5, max_degree=5):
+                 regularization_order: int | float = None, patience=50, min_delta=1e-3, repeat = 5):
         # repetitively tries to fit the model until our loss is small enough, or we exceed given number of iterations
 
         loss_boundary = 0.01
-        while self.degree_p < max_degree:
+        while self.degree_p <= self.max_degree:
             tries = 0
             while -1 < tries < repeat:
                 with torch.no_grad():
@@ -157,17 +158,19 @@ class RationalFunction(nn.Module):
                 sympy.core.expr.Expr: A simplified SymPy expression representing the rational function.
             """
         _x = sympy.Symbol('x')
-        numerator = sum(m *coeff.round(decimals=5) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
+        numerator = sum(round(m *coeff.item(), 4) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
         # + 1 has to be outside since in the case Q = 1, we have no coeffs so sum will be 0 -> we get nan/zoo
-        denominator = sum(m * coeff.round(decimals=5) * _x ** (i+1) for i, coeff in enumerate(reversed(self.coeffs_q))) + 1 * m
+        denominator = sum(round(m *coeff.item(), 4) * _x ** (i+1) for i, coeff in enumerate(reversed(self.coeffs_q))) + 1 * m
         return sympy.sympify(numerator / denominator)
 
 
 if __name__ == '__main__':
     device = 'cpu'
-    model = RationalFunction().to(device)
-    x_train = torch.linspace(-3, 3, 101).to(device)
-    target_function = sympy.lambdify('x', sympy.sympify(f'(2*x**2 + {torch.pi} * x + 3)/(x+7)'))
+    model = RationalFunction(3).to(device)
+    x_train = torch.linspace(-5, 5, 101).to(device)
+    target_function_string =f'(2*x**2 + {torch.pi} * x + 3)/(x+7)'
+    # target_function_string = f'(2.2512*x**3 - 3.54*x**2 + 2.2372*x - 1.9609)/(0.2332*x**3 + 2.3633*x**2 - 0.8626*x - 3.1681)'
+    target_function = sympy.lambdify('x', sympy.sympify(target_function_string))
     y_train = target_function(x_train)
 
     # Train the model
@@ -177,8 +180,8 @@ if __name__ == '__main__':
     with torch.no_grad():
         recovered_function = model.get_function(7)
         lambda_function = sympy.lambdify('x', recovered_function)
-        print("Recovered function: ", model.get_function(), "Final loss: ", model.losses[-1])
-        print("Adapted function  : ", recovered_function, "Final loss: ", model.losses[-1])
+        print("Target function     : ", target_function_string)
+        print("Recovered function  : ", recovered_function, "Final loss: ", model.losses[-1])
     data_utility.function_to_plot(target_function, lambda_function, -4, 4)
     # fig, ax = data_utility.get_loss_plot(loss_history)
     # plt.show()

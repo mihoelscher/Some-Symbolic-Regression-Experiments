@@ -1,5 +1,6 @@
 import numpy as np
 import sympy as sp
+import re
 
 
 def generate_random_polynomial(max_degree: int, min_value: float = -5, max_value: float = 5):
@@ -31,8 +32,20 @@ def get_random_degrees(n, max_degree):
         _degrees.append([np.random.randint(1, max_degree + 1), np.random.randint(1, max_degree + 1)])
     return _degrees
 
+def get_last_coefficient(rational_function):
+    # Extract the denominator part
+    try:
+        denominator = re.search(r'/\((.*)\)', rational_function).group(1)
+    except AttributeError:
+        return 1
+    # Find the last number without 'x' in the denominator
+    last_constant_number = re.findall(r'[-+]?\d*\.?\d+(?!\*)', denominator)[-1]
+    return last_constant_number
+
 if __name__ == '__main__':
     print('Starting function_generator.py test...')
-    degrees = get_random_degrees(10, 5)
-    functions = get_functions_for_degrees(1, degrees)
-    print(*functions, sep= "\n")
+    degrees = get_random_degrees(1, 5)
+    function = get_functions_for_degrees(degrees)[0]
+    result = sp.lambdify('x', function)
+    print(result(2))
+

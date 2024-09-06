@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     # ----------- GINN-LP ------------ #
     if 'ginnlp' in usage:
-        from ginnlp.ginnlp import GINNLP
+        from ginnlp import GINNLP
         ginnLP = GINNLP(num_epochs=500, round_digits=3, start_ln_blocks=1, growth_steps=3,
                         l1_reg=1e-4, l2_reg=1e-4, init_lr=0.01, decay_steps=1000, reg_change=0.5)
         ginnLP.fit(x_train.squeeze(), y_train)

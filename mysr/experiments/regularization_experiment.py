@@ -2,8 +2,7 @@ import concurrent.futures
 import sympy
 import torch
 from matplotlib import pyplot as plt
-from torch import optim
-from RationalSR import RationalFunction
+from mysr.RationalSR import RationalFunction
 
 
 def train_multiple_models_parallel(function_string, regularization_orders):
@@ -13,7 +12,6 @@ def train_multiple_models_parallel(function_string, regularization_orders):
         _loss = _model.fit(x_train, y_train, num_epochs=1000,
                            regularization_parameter=1,
                            regularization_order=r,
-                           optimizer=optim.Adam(_model.parameters(), lr=0.01),
                            verbose=0)
         return _model, _loss
 
