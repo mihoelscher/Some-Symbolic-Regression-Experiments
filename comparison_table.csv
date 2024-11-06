@@ -1,4 +1,0 @@
-target,parfam,ginnLP,mySR
-x_0,1.0*x0,not yet computed,1.0*x
-2*x_0**2,2.0*x0**2,not yet computed,2.0*x**2
-2*x_0**2 + x_0 +1,2.0*x0**2 + 1.0*x0 + 1.0,not yet computed,2.00001381798846*x**2 + 1.0*x + 1.0
