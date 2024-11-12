@@ -8,13 +8,12 @@ from data_utility import process_tensor_with_function, create_input_tensor
 import pandas as pd
 
 if __name__ == '__main__':
-    usage = ['ginnlp', "parfam", 'mysr']
+    usage = ['ginnlp', "parfam"] #, 'mysr']
     # usage = ['ginnlp']
     device = 'cpu'
-    function = 'x_0'
+    function = 'x_0 / x_1'
     override_results = True
-    # parfam fail,
-    # ginnlp close: 0.064/(X_0**0.088*X_1**0.09) + 2.001*X_0**3 + 3.014*X_1**0.998
+
     file = "comparison_table.csv"
     RESULT_COLUMNS = ['target', 'parfam', 'parfam_time', 'ginnLP', 'ginnLP_time', 'mySR', 'mySR_time']
     results = pd.Series([function, 'not yet computed', 'not yet computed', 'not yet computed', 'not yet computed', 'not yet computed', 'not yet computed'],
@@ -24,14 +23,22 @@ if __name__ == '__main__':
     else:
         comparison_table = pd.DataFrame(columns=RESULT_COLUMNS)
 
-    x_train = torch.linspace(1, 5, 101).to('cpu').unsqueeze(0).T
+    # Define the range for each dimension
+    x1 = torch.linspace(1, 5, 101)
+    x2 = torch.linspace(1, 5, 101)
+
+    # Use meshgrid to create a grid of points
+    X1, X2 = torch.meshgrid(x1, x2, indexing='ij')
+
+    # Flatten and combine into a 2D tensor of shape [101 * 101, 2]
+    x_train = torch.stack([X1.flatten(), X2.flatten()], dim=1)
     y_train = process_tensor_with_function(x_train, function)
     y_train = y_train.squeeze()
 
     # ----------- PARFAM ------------- #
     if 'parfam' in usage:
         from parfam.parfamwarpper import ParFamWrapper
-        parfam = ParFamWrapper(iterate=True, functions=[lambda x: x], function_names=[sympy.Id])
+        parfam = ParFamWrapper(iterate=True, functions=[], function_names=[])
         start_time = time.time()
         parfam.fit(x_train, y_train, time_limit=100)
         end_time = time.time()
