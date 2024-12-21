@@ -1,9 +1,10 @@
-import math
 from argparse import ArgumentError
 
 import torch
 import torch.nn as nn
-from torch.nn import init
+import tensorflow as tf
+from tensorflow.keras.layers import Layer
+from tensorflow.keras import regularizers
 
 
 class PTABlock(nn.Module):
@@ -15,7 +16,6 @@ class PTABlock(nn.Module):
         self.l2_reg = l2_reg
         self.block_number = block_number
         self.losses = []
-
         self.exponents = nn.Parameter(torch.randn(num_inputs), requires_grad = True)
 
     def forward(self, inputs_x):
@@ -36,6 +36,41 @@ class PTABlock(nn.Module):
             output += l1_penalty + l2_penalty
         return output
 
+
+class KerasPTABlock(Layer):
+    def __init__(self, num_inputs, block_number=1, l1_reg=0.0, l2_reg=0.0, **kwargs):
+        super(KerasPTABlock, self).__init__(**kwargs)
+        self.exponents = None
+        self.num_inputs = num_inputs
+        self.block_number = block_number
+        self.l1_reg = l1_reg
+        self.l2_reg = l2_reg
+
+        # Define a regularizer based on l1 and l2 values
+        self.regularizer = regularizers.L1L2(l1=l1_reg, l2=l2_reg)
+
+    def build(self, input_shape):
+        # Define exponents as trainable variables
+        self.exponents = self.add_weight(
+            shape=(self.num_inputs,),
+            initializer="random_normal",
+            trainable=True,
+            name=f"exponents_block_{self.block_number}",
+            regularizer=self.regularizer
+        )
+        super(KerasPTABlock, self).build(input_shape)
+
+    def call(self, inputs):
+        if not isinstance(inputs, tf.Tensor):
+            raise ValueError("PTA Input should be a tf.Tensor")
+
+        # Raise each input x_i to its corresponding exponent e_i
+        powered_inputs = tf.pow(inputs, self.exponents)  # Element-wise exponentiation
+
+        # Take the product of all powered inputs along the feature dimension (axis=-1)
+        output = tf.reduce_prod(powered_inputs, axis=-1, keepdims=True)  # Shape: (batch_size, 1)
+
+        return output
 
 class PTABlockWithLog(nn.Module):
     def __init__(self, num_inputs, block_number=1, l1_reg=0.0, l2_reg=0.0):
