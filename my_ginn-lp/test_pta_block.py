@@ -1,6 +1,10 @@
+import concurrent.futures
+
+import pandas as pd
 import torch
 from matplotlib import pyplot as plt
 from torch import nn
+import sympy as sp
 
 from pta_module import PTABlock, PTABlockWithLog
 
@@ -46,44 +50,67 @@ def train_model(model, inputs_x, y, num_epochs=5000, lr=0.01):
     if first_zero_epoch is not None:
         print(
             f"Loss reached zero (or below threshold {loss_threshold}) for the first time at epoch {first_zero_epoch}.")
+        return first_zero_epoch
     else:
         print("Loss did not reach zero during training.")
+        return 10e10
 
-if __name__ == '__main__':
-    # Generate evenly spaced training data
-    num_samples = 1000
-    seed = 6
+
+def train_and_evaluate(formula_str, num_samples, seed):
     torch.manual_seed(seed)
-    x1 = torch.rand(num_samples, 1) * 5  # Random values for x1
-    x2 = torch.rand(num_samples, 1) * 5  # Random values for x2
 
-    # The target output is x1 * x2^2
-    y = x1**2 * x2
+    # Define symbolic variables
+    x1, x2 = sp.symbols('x1 x2')
+    formula = sp.sympify(formula_str)  # Convert string to sympy expression
 
-    # Combine x1 and x2 into a single input tensor
-    inputs_x = torch.cat([x1, x2], dim=1)  # Shape: (num_samples, 2)
+    # Generate random input values
+    x1_vals = torch.rand(num_samples, 1) * 5
+    x2_vals = torch.rand(num_samples, 1) * 5
 
-    # Initialize the models
+    # Convert sympy expression to lambda function
+    formula_func = sp.lambdify((x1, x2), formula, 'numpy')
+    y_vals = torch.tensor(formula_func(x1_vals.numpy(), x2_vals.numpy()), dtype=torch.float32)
+
+    inputs_x = torch.cat([x1_vals, x2_vals], dim=1)
+
+    # Initialize models
     model_pta = PTABlock(num_inputs=2, block_number=1)
     model_pta_log = PTABlockWithLog(num_inputs=2, block_number=1)
+
     with torch.no_grad():
         learned_exponents = model_pta.exponents.clone()
         model_pta_log.ln_dense.weight = torch.nn.Parameter(learned_exponents.view_as(model_pta_log.ln_dense.weight))
 
     torch.manual_seed(seed)
-    print("Training PTABlock...")
-    train_model(model_pta, inputs_x, y)
+    print(f"Training PTABlock for formula: {formula_str}, seed: {seed}")
+    res1 = train_model(model_pta, inputs_x, y_vals)
 
     torch.manual_seed(seed)
-    print("\nTraining PTABlockWithLog...")
-    train_model(model_pta_log, inputs_x, y)
+    print(f"\nTraining PTABlockWithLog for formula: {formula_str}, seed: {seed}")
+    res2 = train_model(model_pta_log, inputs_x, y_vals)
 
-    # Plot the losses for both models
-    plt.figure(figsize=(10, 6))
-    plt.plot(model_pta.losses, label='PTABlock Loss')
-    plt.plot(model_pta_log.losses, label='PTABlockWithLog Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training Loss Comparison')
-    plt.legend()
-    plt.show()
+    if res1 < res2:
+        winner = "PTA"
+    elif res1 > res2:
+        winner = "PTA with log"
+    else:
+        winner = "Fail"
+
+    return [winner, res1, res2]
+
+def train_and_evaluate_parallel(formula, seed, num_samples):
+    return [formula, seed] + train_and_evaluate(formula, num_samples, seed)
+
+if __name__ == '__main__':
+    formulas = ["x1**2 * x2", "x1 / x2", "x1**3/x2"]  # Example formulas
+    seeds = [6, 42, 99]  # Example seeds [random.randint(0, 1000) for _ in range(100)]
+    num_samples = 1000
+    columns = ['Target Formula', 'Seed', 'Winner', 'Last Epoch PTA', 'Last Epoch PTA with Log']
+    result_table = pd.DataFrame(columns=columns)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(lambda args: train_and_evaluate_parallel(*args),
+                                    [(formula, seed, num_samples) for formula in formulas for seed in seeds]))
+
+    result_table = pd.DataFrame(results, columns=columns)
+    print(result_table)
