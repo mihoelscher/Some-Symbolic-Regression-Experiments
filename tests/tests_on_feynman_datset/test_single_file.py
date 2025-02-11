@@ -6,7 +6,7 @@ from tests.tests_on_feynman_datset.parfam_on_feynmann import get_test_results_fo
 # Relative Paths
 dataset_dir = Path.cwd().parent.parent.joinpath('Datasets')
 data_dir = dataset_dir.joinpath('Feynman_with_units')
-name = 'I.12.4'
+name = 'II.38.3'
 
 
 if __name__ == '__main__':
