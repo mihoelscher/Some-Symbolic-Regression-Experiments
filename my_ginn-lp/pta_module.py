@@ -2,9 +2,6 @@ from argparse import ArgumentError
 
 import torch
 import torch.nn as nn
-import tensorflow as tf
-from tensorflow.keras.layers import Layer
-from tensorflow.keras import regularizers
 
 
 class PTABlock(nn.Module):
@@ -36,18 +33,6 @@ class PTABlock(nn.Module):
             output += l1_penalty + l2_penalty
         return output
 
-
-    def call(self, inputs):
-        if not isinstance(inputs, tf.Tensor):
-            raise ValueError("PTA Input should be a tf.Tensor")
-
-        # Raise each input x_i to its corresponding exponent e_i
-        powered_inputs = tf.pow(inputs, self.exponents)  # Element-wise exponentiation
-
-        # Take the product of all powered inputs along the feature dimension (axis=-1)
-        output = tf.reduce_prod(powered_inputs, axis=-1, keepdims=True)  # Shape: (batch_size, 1)
-
-        return output
 
 class PTABlockWithLog(nn.Module):
     def __init__(self, num_inputs, block_number=1, l1_reg=0.0, l2_reg=0.0):

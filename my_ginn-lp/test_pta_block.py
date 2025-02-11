@@ -1,4 +1,5 @@
 import concurrent.futures
+import random
 
 import pandas as pd
 import torch
@@ -98,19 +99,17 @@ def train_and_evaluate(formula_str, num_samples, seed):
 
     return [winner, res1, res2]
 
-def train_and_evaluate_parallel(formula, seed, num_samples):
+def train_and_evaluate_parallel(t, num_samples=1000):
+    formula, seed = t
     return [formula, seed] + train_and_evaluate(formula, num_samples, seed)
 
 if __name__ == '__main__':
     formulas = ["x1**2 * x2", "x1 / x2", "x1**3/x2"]  # Example formulas
-    seeds = [6, 42, 99]  # Example seeds [random.randint(0, 1000) for _ in range(100)]
-    num_samples = 1000
+    seeds = range(0,1000)
     columns = ['Target Formula', 'Seed', 'Winner', 'Last Epoch PTA', 'Last Epoch PTA with Log']
-    result_table = pd.DataFrame(columns=columns)
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        results = list(executor.map(lambda args: train_and_evaluate_parallel(*args),
-                                    [(formula, seed, num_samples) for formula in formulas for seed in seeds]))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = list(executor.map(train_and_evaluate_parallel, [(f,s) for f in formulas for s in seeds]))
 
     result_table = pd.DataFrame(results, columns=columns)
-    print(result_table)
+    result_table.to_csv("pta_block.csv", index=False)
