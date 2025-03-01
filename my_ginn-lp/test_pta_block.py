@@ -1,32 +1,21 @@
 import concurrent.futures
-import random
 
 import pandas as pd
-import torch
-from matplotlib import pyplot as plt
-from torch import nn
 import sympy as sp
+import torch
 
 from pta_module import PTABlock, PTABlockWithLog
 
+
 def train_model(model, inputs_x, y, num_epochs=5000, lr=0.01):
-    # Define a mean squared error loss function
     criterion = torch.nn.MSELoss()
-
-    # Use an optimizer (e.g., Adam) to update model parameters
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    loss_threshold = 1e-5
+    first_zero_epoch = None
 
-    loss_threshold = 1e-5  # You can set a threshold close to zero
-    first_zero_epoch = None  # Initialize to None to indicate it hasn't been reached
-
-    # Training loop
     for epoch in range(num_epochs):
         model.train()
-
-        # Forward pass: Compute the model's prediction
         predictions = model(inputs_x)
-
-        # Compute the loss
         loss = criterion(predictions, y)
         model.losses.append(loss.item())
 
@@ -34,17 +23,14 @@ def train_model(model, inputs_x, y, num_epochs=5000, lr=0.01):
         if first_zero_epoch is None and loss.item() <= loss_threshold:
             first_zero_epoch = epoch + 1  # Store the epoch (1-indexed)
 
-        # Backward pass and optimization
         optimizer.zero_grad()  # Zero out the gradients from the previous step
         loss.backward()  # Backpropagate to compute gradients
         optimizer.step()  # Update the parameters
 
-        # Print the loss every 100 epochs for monitoring
         if (epoch + 1) % 100 == 0 or epoch == 0:
             if epoch == 0:
                 print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
 
-    # Print final results after training
     print(f"Learned exponents for {model.__class__.__name__}:", model.exponents.detach().numpy())
     print(f"Final loss for {model.__class__.__name__}: {loss.item():.4f}")
 
@@ -60,15 +46,12 @@ def train_model(model, inputs_x, y, num_epochs=5000, lr=0.01):
 def train_and_evaluate(formula_str, num_samples, seed):
     torch.manual_seed(seed)
 
-    # Define symbolic variables
     x1, x2 = sp.symbols('x1 x2')
     formula = sp.sympify(formula_str)  # Convert string to sympy expression
 
-    # Generate random input values
     x1_vals = torch.rand(num_samples, 1) * 5
     x2_vals = torch.rand(num_samples, 1) * 5
 
-    # Convert sympy expression to lambda function
     formula_func = sp.lambdify((x1, x2), formula, 'numpy')
     y_vals = torch.tensor(formula_func(x1_vals.numpy(), x2_vals.numpy()), dtype=torch.float32)
 
