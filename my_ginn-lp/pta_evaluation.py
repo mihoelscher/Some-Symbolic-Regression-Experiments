@@ -41,7 +41,7 @@ def analyze_csv(file_path):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), str(int(bar.get_height())),
                 ha='center', va='bottom', fontsize=12)
 
-    fig.savefig('pta_comparison.svg', format='svg')
+    fig.savefig('pta_comparison.png', format='png')
     fig.show()
 
 if __name__ == '__main__':
