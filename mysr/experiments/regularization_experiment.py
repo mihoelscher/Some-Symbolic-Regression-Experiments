@@ -9,11 +9,12 @@ def train_multiple_models_parallel(function_string, regularization_orders):
     def train_model(r):
         torch.manual_seed(1337)
         _model = RationalFunction(3, 1)
-        _loss = _model.fit(x_train, y_train, num_epochs=1000,
+        _model.fit(x_train, y_train, num_epochs=1000,
                            regularization_parameter=1,
                            regularization_order=r,
                            verbose=0)
-        return _model, _loss
+
+        return _model, _model.losses
 
     x_train = torch.linspace(-10, 10, 1000).to('cpu')
     function = sympy.lambdify('x', sympy.sympify(function_string))

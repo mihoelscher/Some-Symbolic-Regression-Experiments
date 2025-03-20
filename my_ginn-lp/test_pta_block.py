@@ -87,7 +87,7 @@ def train_and_evaluate_parallel(t, num_samples=1000):
     return [formula, seed] + train_and_evaluate(formula, num_samples, seed)
 
 if __name__ == '__main__':
-    formulas = ["x1**2 * x2", "x1 / x2", "x1**3/x2"]  # Example formulas
+    formulas = ["x1**2 * x2", "x1 / x2", "x1**3/x2"]
     seeds = range(0,1000)
     columns = ['Target Formula', 'Seed', 'Winner', 'Last Epoch PTA', 'Last Epoch PTA with Log']
 
