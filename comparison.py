@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # ------------ MySR -------------- #
     if 'mysr' in usage:
-        from mysr.RationalSR import RationalFunction
+        from rationalFunction.RationalSR import RationalFunction
         mySR = RationalFunction(3)
         start_time = time.time()
         mySR.fit(x_train.squeeze(), y_train)

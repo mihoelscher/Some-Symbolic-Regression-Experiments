@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 from torch import optim
 
-from mysr.RationalSR import RationalFunction
+from rationalFunction.RationalSR import RationalFunction
 
 if __name__ == '__main__':
     # We see that regularization has no impact at this point, since in comparison with the standard loss,

@@ -2,7 +2,7 @@ import concurrent.futures
 import sympy
 import torch
 from matplotlib import pyplot as plt
-from mysr.RationalSR import RationalFunction
+from rationalFunction.RationalSR import RationalFunction
 
 
 def train_multiple_models_parallel(function_string, regularization_orders):

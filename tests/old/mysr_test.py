@@ -1,7 +1,7 @@
-from mysr.RationalSR import RationalFunction
+from rationalFunction.RationalSR import RationalFunction
 import torch
 import sympy as sp
-from mysr.function_generator import get_random_degrees, get_functions_for_degrees, get_last_coefficient
+from rationalFunction.function_generator import get_random_degrees, get_functions_for_degrees, get_last_coefficient
 
 degrees = get_random_degrees(10, 5)
 functions = get_functions_for_degrees(degrees)

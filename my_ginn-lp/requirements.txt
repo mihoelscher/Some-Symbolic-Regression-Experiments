@@ -12,3 +12,5 @@ pmlb~=1.0.1.post3
 tensorflow~=2.15.0
 setuptools~=68.2.0
 pysr~=0.19.4
+graphviz~=0.20.3
+seaborn~=0.13.2

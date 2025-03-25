@@ -46,15 +46,6 @@ class RationalFunction(nn.Module):
         self.losses = []
 
     def forward(self, x) -> Tensor:
-        """
-        Forward pass through the RationalFunction module.
-
-        Parameters:
-        x (torch.Tensor): The input tensor.
-
-        Returns:
-        torch.Tensor: The output tensor after applying the rational function.
-        """
         # Compute the numerator P(x) and denominator Q(x)
         numerator = sum(self.coeffs_p[-i - 1] * x ** i for i in range(len(self.coeffs_p)))
         denominator = sum(self.coeffs_q[-i - 1] * x ** (i+1) for i in range(len(self.coeffs_q))) + 1
@@ -146,7 +137,6 @@ class RationalFunction(nn.Module):
                 break
             self.degree_p += 1
             self.degree_q += 1
-
 
 
 
