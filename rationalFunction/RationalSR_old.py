@@ -3,11 +3,8 @@ import sympy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from networkx import is_empty
 from torch import Tensor
-from torch.nn.utils import (
-  parameters_to_vector as Params2Vec,
-  vector_to_parameters as Vec2Params
-)
 
 import data_utility
 
@@ -44,17 +41,17 @@ class RationalFunction(nn.Module):
         self.degree_p = degree_p
         self.degree_q = degree_q
         self.coeffs_p = nn.Parameter(torch.rand(degree_p + 1))
-        self.coeffs_q = nn.Parameter(torch.rand(degree_q + 1))
+        self.coeffs_q = nn.Parameter(torch.rand(degree_q))
         self.losses = []
 
     def forward(self, x) -> Tensor:
         # Compute the numerator P(x) and denominator Q(x)
         numerator = sum(self.coeffs_p[-i - 1] * x ** i for i in range(len(self.coeffs_p)))
-        denominator = sum(self.coeffs_q[-i - 1] * x ** i for i in range(len(self.coeffs_q)))
+        denominator = sum(self.coeffs_q[-i - 1] * x ** (i+1) for i in range(len(self.coeffs_q))) + 1
         return torch.Tensor(numerator / denominator)
 
     def fit_once(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
-            regularization_order: int | float = None):
+            regularization_order: int | float = None, patience=50, min_delta=1e-3, loss_boundary = 0.01):
         """
         Fit the RationalFunction model to the training data.
 
@@ -94,7 +91,19 @@ class RationalFunction(nn.Module):
             # prune coefficients
             with torch.no_grad():
                 self.coeffs_p[torch.abs(self.coeffs_p) < 0.001] = 0.0
-                self.coeffs_q[torch.abs(self.coeffs_q) < 0.001] = 0.0
+                self.coeffs_q[:-1][torch.abs(self.coeffs_q[:-1]) < 0.001] = 0.0
+
+            # Check for early stopping
+            if loss.item() < best_loss - min_delta:
+                best_loss = loss.item()
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+            if epochs_without_improvement >= patience and loss.item() < loss_boundary:
+                if verbose > 0:
+                    print(f'Early stopping since no improvement at epoch {epoch + 1}')
+                break
 
             if verbose == 1 and (epoch + 1) % 100 == 0:
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.9f}')
@@ -103,19 +112,29 @@ class RationalFunction(nn.Module):
         with torch.no_grad():
             mask = torch.abs(self.coeffs_p - torch.round(self.coeffs_p)) < 0.01
             self.coeffs_p[mask] = torch.round(self.coeffs_p[mask])
-            mask = torch.abs(self.coeffs_q - torch.round(self.coeffs_q)) < 0.01
-            self.coeffs_q[mask] = torch.round(self.coeffs_q[mask])
+            mask = torch.abs(self.coeffs_q[:-1] - torch.round(self.coeffs_q[:-1])) < 0.01
+            self.coeffs_q[:-1][mask] = torch.round(self.coeffs_q[:-1][mask])
 
     def fit(self, x_input, target, num_epochs=1000, regularization_parameter=0.1, verbose=1,
-                 regularization_order: int | float = None):
+                 regularization_order: int | float = None, patience=50, min_delta=1e-3, repeat = 5):
         # repetitively tries to fit the model until our loss is small enough, or we exceed given number of iterations
 
-        self.fit_once(x_input, target, num_epochs=num_epochs, regularization_parameter=regularization_parameter,
-                      verbose=verbose, regularization_order=regularization_order)
+        loss_boundary = 0.00001
+        tries = 1
+        while -1 < tries < repeat:
+            with torch.no_grad():
+                self.coeffs_p.data = torch.randn(self.degree_p + 1)
+                self.coeffs_q.data = torch.randn(self.degree_q)
+            self.fit_once(x_input, target, num_epochs=num_epochs, regularization_parameter=regularization_parameter,
+                          verbose=verbose, regularization_order=regularization_order, patience=patience,
+                          min_delta=min_delta, loss_boundary=loss_boundary)
+            if self.losses[-1] < loss_boundary:
+                break 
+            tries += 1
 
 
 
-    def get_function(self):
+    def get_function(self, m = 1):
         """
             Constructs a symbolic rational function from the stored numerator and denominator coefficients.
 
@@ -123,24 +142,24 @@ class RationalFunction(nn.Module):
                 sympy.core.expr.Expr: A simplified SymPy expression representing the rational function.
             """
         _x = sympy.Symbol('x')
-        numerator = sum(round(coeff.item(), 4) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
+        numerator = sum(round(m *coeff.item(), 4) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_p)))
         # + 1 has to be outside since in the case Q = 1, we have no coeffs so sum will be 0 -> we get nan/zoo
-        denominator = sum(round(coeff.item(), 4) * _x ** i for i, coeff in enumerate(reversed(self.coeffs_q)))
+        denominator = sum(round(m *coeff.item(), 4) * _x ** (i+1) for i, coeff in enumerate(reversed(self.coeffs_q))) + 1 * m
         return sympy.sympify(numerator / denominator)
 
 
 if __name__ == '__main__':
     device = 'cpu'
     torch.manual_seed(26)
-    model = RationalFunction(2, 1).to(device)
-    x_train = torch.linspace(1, 5, 10000).to(device)
-    target_function_string =f'(2*x**2 + x + 1)/(x + 1)'
+    model = RationalFunction(2,1).to(device)
+    x_train = torch.linspace(1, 5, 1001).to(device)
+    target_function_string =f'(2*x**2 + x + 1)/(x+1)'
     # target_function_string = f'(2.2512*x**3 - 3.54*x**2 + 2.2372*x - 1.9609)/(0.2332*x**3 + 2.3633*x**2 - 0.8626*x - 3.1681)'
     target_function = sympy.lambdify('x', sympy.sympify(target_function_string))
     y_train = target_function(x_train)
 
     # Train the model
-    model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=1, verbose=1,
+    model.fit_once(x_train, y_train, num_epochs=4000, regularization_parameter=1, verbose=1,
                              regularization_order=None)
     model.eval()
     with torch.no_grad():
@@ -148,7 +167,6 @@ if __name__ == '__main__':
         lambda_function = sympy.lambdify('x', recovered_function)
         print("Target function     : ", target_function_string)
         print("Recovered function  : ", recovered_function, "Final loss: ", model.losses[-1])
-    data_utility.function_to_plot(target_function, lambda_function, 1, 5)
     data_utility.function_to_plot(target_function, lambda_function, -3, 5)
     # fig, ax = data_utility.get_loss_plot(loss_history)
     # plt.show()
