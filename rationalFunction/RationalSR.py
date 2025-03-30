@@ -131,24 +131,29 @@ class RationalFunction(nn.Module):
 
 if __name__ == '__main__':
     device = 'cpu'
-    torch.manual_seed(26)
-    model = RationalFunction(2, 1).to(device)
-    x_train = torch.linspace(1, 5, 10000).to(device)
-    target_function_string =f'(2*x**2 + x + 1)/(x + 1)'
-    # target_function_string = f'(2.2512*x**3 - 3.54*x**2 + 2.2372*x - 1.9609)/(0.2332*x**3 + 2.3633*x**2 - 0.8626*x - 3.1681)'
-    target_function = sympy.lambdify('x', sympy.sympify(target_function_string))
-    y_train = target_function(x_train)
+    target_function_string = f'(2*x**2 + x + 1)/(x + 1)'
+    success = 0
+    for seed in range(30):
+        torch.manual_seed(seed)
+        model = RationalFunction(2, 1).to(device)
+        x_train = torch.linspace(-0.8, 5, 10000).to(device)
+        target_function = sympy.lambdify('x', sympy.sympify(target_function_string))
+        y_train = target_function(x_train)
 
-    # Train the model
-    model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=1, verbose=1,
-                             regularization_order=None)
-    model.eval()
-    with torch.no_grad():
-        recovered_function = model.get_function()
-        lambda_function = sympy.lambdify('x', recovered_function)
-        print("Target function     : ", target_function_string)
-        print("Recovered function  : ", recovered_function, "Final loss: ", model.losses[-1])
-    data_utility.function_to_plot(target_function, lambda_function, 1, 5)
-    data_utility.function_to_plot(target_function, lambda_function, -3, 5)
-    # fig, ax = data_utility.get_loss_plot(loss_history)
-    # plt.show()
+        # Train the model
+        model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=1, verbose=1,
+                                 regularization_order=None)
+        model.eval()
+        with torch.no_grad():
+            recovered_function = model.get_function()
+            lambda_function = sympy.lambdify('x', recovered_function)
+            print("Target function     : ", target_function_string)
+            print("Recovered function  : ", recovered_function, "Final loss: ", model.losses[-1])
+
+        if model.losses[-1] < 1e-7:
+            success += 1
+
+        #data_utility.function_to_plot(target_function, lambda_function, -3, 5)
+        # fig, ax = data_utility.get_loss_plot(loss_history)
+        # plt.show()
+    print("Success: ", success)
