@@ -131,9 +131,10 @@ class RationalFunction(nn.Module):
 
 if __name__ == '__main__':
     device = 'cpu'
-    target_function_string = f'(2*x**2 + x + 1)/(x + 1)'
+    target_function_string = f'(2*x**2 + 1)/(x + 1)' # f'(2*x**2 + x + 1)/(x + 1)'
+    reg = 2
     success = 0
-    for seed in range(30):
+    for seed in range(100):
         torch.manual_seed(seed)
         model = RationalFunction(2, 1).to(device)
         x_train = torch.linspace(-0.8, 5, 10000).to(device)
@@ -141,8 +142,8 @@ if __name__ == '__main__':
         y_train = target_function(x_train)
 
         # Train the model
-        model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=1, verbose=1,
-                                 regularization_order=None)
+        model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=0.1, verbose=0,
+                                 regularization_order=reg)
         model.eval()
         with torch.no_grad():
             recovered_function = model.get_function()
@@ -150,7 +151,7 @@ if __name__ == '__main__':
             print("Target function     : ", target_function_string)
             print("Recovered function  : ", recovered_function, "Final loss: ", model.losses[-1])
 
-        if model.losses[-1] < 1e-7:
+        if model.losses[-1] < 1e-4:
             success += 1
 
         #data_utility.function_to_plot(target_function, lambda_function, -3, 5)

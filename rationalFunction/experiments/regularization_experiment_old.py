@@ -7,16 +7,21 @@ from rationalFunction.RationalSR import RationalFunction
 
 def train_multiple_models_parallel(function_string, regularization_orders):
     def train_model(r):
-        torch.manual_seed(1337)
-        _model = RationalFunction(3, 1)
+        torch.manual_seed(12)
+        _model = RationalFunction(2, 1)
+        print(_model.coeffs_p, _model.coeffs_q)
         _model.fit(x_train, y_train, num_epochs=1000,
-                           regularization_parameter=1,
+                           regularization_parameter=0.1,
                            regularization_order=r,
                            verbose=0)
+        with torch.no_grad():
+            scale_factor = 1/_model.coeffs_q[0].item()
+            _model.coeffs_q.data *= scale_factor
+            _model.coeffs_p.data *= scale_factor
 
         return _model, _model.losses
 
-    x_train = torch.linspace(-10, 10, 1000).to('cpu')
+    x_train = torch.linspace(-0.8, 5, 1000).to('cpu')
     function = sympy.lambdify('x', sympy.sympify(function_string))
     y_train = function(x_train)
 
@@ -38,15 +43,12 @@ def plot_multiple_losses(_models, _losses):
     axes.set_xlabel('Epoch')
     axes.set_ylabel('Loss')
     axes.set_title('Training loss')
-    print("Recovered function: ", _models[0].get_function())
-    labels = ["l0", "l0.5", "l1", "l2"]
-    colors = ["b", "g", "r", "black"]
+    labels = ["No regularization", "l1", "l2"]
+    colors = ["black", "r", "b"]
 
     for i, model in enumerate(_models):
         with torch.no_grad():
-            print("Learned coefficients for P(x): ", model.coeffs_p, "Learned coefficients for Q(x): ",
-                  model.coeffs_q)
-            print("Recovered function: ", model.get_function())
+            print(f'Reg: {labels[i]} Recovered function: , {model.get_function()}')
         axes.plot(range(len(_losses[i])), _losses[i], label=labels[i], color=colors[i])
 
     axes.legend()
@@ -54,7 +56,7 @@ def plot_multiple_losses(_models, _losses):
 
 
 if __name__ == '__main__':
-    models, losses = train_multiple_models_parallel(f'(2*x**2)/(x+3)', [0, 0.5, 1, 2])
+    models, losses = train_multiple_models_parallel(f'(2*x**2 + x + 1)/(x + 1)', [None, 1, 2])
     fig, ax = plot_multiple_losses(models, losses)
     # fig.savefig('regularization_result.svg', format='svg')
     plt.show()
