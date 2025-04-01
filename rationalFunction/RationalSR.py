@@ -142,7 +142,7 @@ if __name__ == '__main__':
         y_train = target_function(x_train)
 
         # Train the model
-        model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=0.1, verbose=0,
+        model.fit(x_train, y_train, num_epochs=4000, regularization_parameter=0.0001, verbose=0,
                                  regularization_order=reg)
         model.eval()
         with torch.no_grad():
