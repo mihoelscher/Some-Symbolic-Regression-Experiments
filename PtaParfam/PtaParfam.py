@@ -1,4 +1,5 @@
 import pandas as pd
+import sympy
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -23,7 +24,7 @@ class PtaParfam(torch.nn.Module):
         self.max_repetitions = max_repetitions
 
     def _init_pta_blocks(self):
-        self.outer_pta_growth_block = PtaGrowth(len(self.functions), 1)
+        self.outer_pta_growth_block = PtaGrowth(len(self.functions), self.max_number_of_blocks)
         self.inner_pta_growth_blocks_dict = nn.ModuleDict(
             {function_name: PtaGrowth(self.input_dim, self.max_number_of_growth_blocks) for function_name in
              self.function_names})
@@ -81,7 +82,7 @@ class PtaParfam(torch.nn.Module):
             inner_formulas.append(
                 f'{self.function_names[i]}({self.inner_pta_growth_blocks_dict[self.function_names[i]].to_formula()})')
 
-        return self.outer_pta_growth_block.to_formula(inner_formulas).replace('id','')
+        return self.outer_pta_growth_block.to_formula(inner_formulas).replace('id', '')
 
     def prune_exponents(self):
         for pta_growth_block in self.inner_pta_growth_blocks_dict.values():
@@ -90,9 +91,15 @@ class PtaParfam(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    df = pd.read_csv('I.8.14', sep=" ", header=None, nrows=10000).iloc[:,:-1]
-    train_x = torch.tensor(df.iloc[:, :-1].values.astype(float))
-    train_y = torch.tensor(df.iloc[:, -1].values)
-    pp = PtaParfam(functions=[torch.sqrt])
-    pp.fit(train_x, train_y)
+    #torch.manual_seed(243362187015100)
+    print(torch.seed())
+    target_function_string = f'exp(-(x/y)**2/2)/(sqrt(2*pi)*y)'
+    train_x = torch.rand(1000, 2) * 3 + 1
+    target_function = sympy.lambdify('x,y', sympy.sympify(target_function_string))
+    train_y = target_function(train_x[:, 0], train_x[:, 1])
+    #df = pd.read_csv('I.8.14', sep=" ", header=None, nrows=10000).iloc[:,:-1]
+    #train_x = torch.tensor(df.iloc[:, :-1].values.astype(float))
+    #train_y = torch.tensor(df.iloc[:, -1].values)
+    pp = PtaParfam(functions=[torch.exp], max_number_of_growth_blocks=1)
+    pp.fit(train_x, train_y, num_epochs=2000, lr=0.0005)
     print(pp.to_formula())
